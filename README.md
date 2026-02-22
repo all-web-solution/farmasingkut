@@ -24,7 +24,7 @@ Perhatikan untuk menjalankan atau mensetup project ini.
    ```
    git clone https://github.com/Ridhsuki/kasir-apotek-azzahra.git
    cd kasir-apotek-azzahra
-   composer instakl
+   composer install
    ```
    untuk production
 
