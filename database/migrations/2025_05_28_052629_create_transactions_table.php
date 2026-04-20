@@ -21,6 +21,11 @@ return new class extends Migration
             $table->text('address')->nullable();
             $table->text('notes')->nullable();
             $table->integer('total');
+            $table->integer('diskon')->default(0)->comment('Diskon untuk transaksi')->nullable();
+            $table->integer('subtotal')->default(0)->comment('Subtotal untuk transaksi')->nullable();
+            $table->integer('jasa_dokter')->nullable()->default(0);
+            $table->integer('jasa_tindakan')->nullable()->default(0);
+            $table->boolean('is_bpjs')->default(false);
             $table->integer('cash_received');
             $table->integer('change');
             $table->timestamps();

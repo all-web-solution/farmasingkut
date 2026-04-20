@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('products', function (Blueprint $table) {
             $table->id();
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
+            $table->string('nama_perusahaan')->nullable();
+
             $table->string('name');
             $table->integer('stock')->nullable();
             $table->integer('cost_price');
@@ -23,6 +25,7 @@ return new class extends Migration
             $table->string('barcode')->nullable();
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
+            $table->string('no_batch')->nullable();
             $table->date('expiry_date')->nullable();
             $table->timestamps();
             $table->softDeletes();

@@ -14,7 +14,6 @@ use App\Models\PaymentMethod;
 use App\Models\TransactionItem;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
-use Filament\Tables\Actions\Action;
 use App\Services\DirectPrintService;
 use Filament\Support\Exceptions\Halt;
 use Filament\Support\Enums\FontWeight;
@@ -27,6 +26,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\TransactionResource\Pages;
 use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Illuminate\Support\Facades\Auth;
+use Filament\Forms\Components\TextInput;
 
 class TransactionResource extends Resource implements HasShieldPermissions
 {
@@ -99,7 +99,9 @@ class TransactionResource extends Resource implements HasShieldPermissions
                                     ->required()
                                     ->readOnly()
                                     ->numeric()
-                                    ->default(0),
+                                    ->default(0)
+                                    ->prefix('Rp ')
+                                    ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.')),
                                 Forms\Components\TextInput::make('diskon')
                                     ->label('Diskon (%)')
                                     ->required()
@@ -117,7 +119,9 @@ class TransactionResource extends Resource implements HasShieldPermissions
                                     ->required()
                                     ->readOnly()
                                     ->numeric()
-                                    ->default(0),
+                                    ->default(0)
+                                    ->prefix('Rp ')
+                                    ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.')),
                                 Forms\Components\Textarea::make('notes')
                                     ->columnSpanFull(),
                             ])
@@ -157,6 +161,8 @@ class TransactionResource extends Resource implements HasShieldPermissions
                                     ->required()
                                     ->reactive()
                                     ->label('Nominal pembayaran')
+                                    ->prefix('Rp ')
+                                    ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.'))
                                     ->readOnly(fn(Forms\Get $get) => $get('is_cash') == false)
                                     ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get, $state) {
                                         // function untuk menghitung uang kembalian
@@ -165,6 +171,8 @@ class TransactionResource extends Resource implements HasShieldPermissions
                                 Forms\Components\TextInput::make('change')
                                     ->numeric()
                                     ->label('Kembalian')
+                                    ->prefix('Rp ')
+                                    ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.'))
                                     ->readOnly(),
                             ])
                     ]),
@@ -196,17 +204,15 @@ class TransactionResource extends Resource implements HasShieldPermissions
                     ->searchable(),
                 Tables\Columns\TextColumn::make('subtotal')
                     ->label('Subtotal')
-                    ->prefix('Rp ')
-                    ->numeric()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->money('IDR')
+                    ->numeric(),
                 Tables\Columns\TextColumn::make('diskon')
                     ->label('Diskon')
                     ->suffix('%')
-                    ->numeric()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->numeric(),
                 Tables\Columns\TextColumn::make('total')
                     ->label('Total Harga')
-                    ->prefix('Rp ')
+                    ->money('IDR')
                     ->numeric(),
                 Tables\Columns\BadgeColumn::make('paymentMethod.name')
                     ->label('Pembayaran')
@@ -255,7 +261,6 @@ class TransactionResource extends Resource implements HasShieldPermissions
                     ->action(function ($record, $livewire) {
                         $order = Transaction::with(['paymentMethod', 'transactionItems.product'])->findOrFail($record->id);
                         $items = $order->transactionItems;
-
 
                         $livewire->printStruk($order, $items);
                     })
@@ -328,7 +333,6 @@ class TransactionResource extends Resource implements HasShieldPermissions
                     ->columnSpan(['md' => 5])
                     ->disableOptionsWhenSelectedInSiblingRepeaterItems()
                     ->reactive()
-
                     ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
                         $product = Product::withTrashed()->find($state);
 
@@ -370,6 +374,8 @@ class TransactionResource extends Resource implements HasShieldPermissions
                     ->required()
                     ->numeric()
                     ->readOnly()
+                    ->prefix('Rp ')
+                    ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.'))
                     ->columnSpan([
                         'md' => 5
                     ]),
@@ -378,6 +384,8 @@ class TransactionResource extends Resource implements HasShieldPermissions
                     ->required()
                     ->numeric()
                     ->readOnly()
+                    ->prefix('Rp ')
+                    ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.'))
                     ->columnSpan([
                         'md' => 5
                     ]),
@@ -389,7 +397,7 @@ class TransactionResource extends Resource implements HasShieldPermissions
                         return !$product || $product->trashed();
                     });
 
-                if ($invalidProducts->isEmpty()) {
+                if ($invalidProducts->isNotEmpty()) {
                     Notification::make()
                         ->title('Tidak dapat menyimpan')
                         ->body('Ada produk yang telah dihapus dari sistem.')
@@ -502,7 +510,7 @@ class TransactionResource extends Resource implements HasShieldPermissions
 
     protected static function updateExchangePaid(Forms\Get $get, Forms\Set $set): void
     {
-        $paidAmount = (int) $get('cash_received') ?? 0;
+        $paidAmount = (int) str_replace(['Rp', ' ', '.', ','], '', $get('cash_received') ?? '0');
         $totalPrice = (int) $get('total') ?? 0;
         $exchangePaid = $paidAmount - $totalPrice;
         $set('change', $exchangePaid);

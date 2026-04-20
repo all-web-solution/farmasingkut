@@ -12,7 +12,6 @@ return new class extends Migration {
     {
         Schema::table('transactions', function (Blueprint $table) {
             $table->foreignId('user_id')->nullable()->after('id')->constrained()->onDelete('set null');
-            $table->integer('jasa_tindakan')->default(0)->after('jasa_dokter');
         });
     }
 
@@ -23,7 +22,6 @@ return new class extends Migration {
     {
         Schema::table('transactions', function (Blueprint $table) {
             $table->dropForeign(['user_id']);
-            $table->dropColumn(['user_id', 'jasa_dokter', 'jasa_tindakan']);
         });
     }
 };
