@@ -69,15 +69,15 @@ class PaymentMethodResource extends Resource implements HasShieldPermissions
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('image')
-                    ->circular()
-                    ->getStateUsing(function ($record) {
-                        if ($record->image) {
-                            return asset("storage/{$record->image}");
-                        }
-                        return asset('images/payment.png');
-                    })
-                    ->label('Gambar'),
+                // Tables\Columns\ImageColumn::make('image')
+                //     ->circular()
+                //     ->getStateUsing(function ($record) {
+                //         if ($record->image) {
+                //             return asset("storage/{$record->image}");
+                //         }
+                //         return asset('images/payment.png');
+                //     })
+                //     ->label('Gambar'),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Metode Pembayaran')
                     ->searchable(),
