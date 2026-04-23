@@ -10,6 +10,8 @@ use Filament\Tables\Table;
 use Filament\Resources\Resource;
 use App\Filament\Resources\ReportResource\Pages;
 use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
+use Filament\Notifications\Notification;
+use Carbon\Carbon;
 
 class ReportResource extends Resource implements HasShieldPermissions
 {
@@ -55,18 +57,30 @@ class ReportResource extends Resource implements HasShieldPermissions
                                 'outflow' => 'danger',
                                 'sales' => 'info'
                             ])
-                            // ->icons([
-                            //     'pemasukan' => 'heroicon-o-arrow-down-circle',
-                            //     'pengeluaran' => 'heroicon-o-arrow-up-circle',
-                            // ])
                             ->default('inflow')
                             ->grouped(),
                         Forms\Components\DatePicker::make('start_date')
                             ->label('Dari Tanggal')
+                            ->native(false)
                             ->required(),
                         Forms\Components\DatePicker::make('end_date')
                             ->label('Sampai Tanggal')
-                            ->required(),
+                            ->native(false)
+                            ->required()
+                            ->afterStateUpdated(function ($state, callable $set, $get) {
+                                $start = $get('start_date');
+                                if ($start && $state) {
+                                    $diff = Carbon::parse($start)->diffInDays(Carbon::parse($state));
+                                    if ($diff > 30) {
+                                        Notification::make()
+                                            ->title('Perhatian')
+                                            ->body('Rentang tanggal tidak boleh lebih dari 30 hari.')
+                                            ->danger()
+                                            ->send();
+                                        $set('end_date', null); // reset end date jika melebihi 30 hari
+                                    }
+                                }
+                            }),
                     ]),
             ]);
     }
@@ -115,16 +129,26 @@ class ReportResource extends Resource implements HasShieldPermissions
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])->defaultSort('created_at', 'desc')
-            ->filters([
-                //
-            ])
             ->actions([
                 Tables\Actions\Action::make('download')
-                    ->label('Download') // Label di tombol
-                    ->icon('heroicon-m-arrow-down-tray') // Icon download dari Heroicons
-                    ->color('primary') // Warna tombol (biru)
-                    ->url(fn($record) => asset('storage/' . $record->path_file))
-                    ->openUrlInNewTab(true), // Membuka URL di tab baru,
+                    ->label('Download')
+                    ->icon('heroicon-m-arrow-down-tray')
+                    ->color('primary')
+                    ->action(function ($record) {
+                        $start = Carbon::parse($record->start_date);
+                        $end = Carbon::parse($record->end_date);
+
+                        if ($start->diffInDays($end) > 30) {
+                            Notification::make()
+                                ->title('Perhatian')
+                                ->body('Rentang tanggal tidak boleh lebih dari 30 hari untuk laporan ini.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        return redirect(asset('storage/' . $record->path_file));
+                    }),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
@@ -136,9 +160,7 @@ class ReportResource extends Resource implements HasShieldPermissions
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array
