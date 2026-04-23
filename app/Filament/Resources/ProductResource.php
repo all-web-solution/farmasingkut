@@ -51,9 +51,12 @@ class ProductResource extends Resource implements HasShieldPermissions
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->withoutGlobalScopes([
-            SoftDeletingScope::class,
-        ])->orderBy('created_at', 'desc');
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([SoftDeletingScope::class])
+            ->with([
+                'category' => fn($query) => $query->withTrashed(),
+            ])
+            ->orderByDesc('created_at');
     }
 
     public static function form(Form $form): Form
@@ -184,11 +187,11 @@ class ProductResource extends Resource implements HasShieldPermissions
                     }),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Obat')
-                    ->description(fn(Product $record): string => $record->category()->withTrashed()->value('name'))
+                    ->description(fn(Product $record): string => $record->category?->name ?? '-')
                     ->searchable(),
+
                 Tables\Columns\TextColumn::make('nama_perusahaan')
                     ->label('Nama Perusahaan')
-                    ->description(fn(Product $record): string => $record->category()->withTrashed()->value('name'))
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('stock')
@@ -234,8 +237,9 @@ class ProductResource extends Resource implements HasShieldPermissions
                 Tables\Filters\TrashedFilter::make(),
                 Tables\Filters\SelectFilter::make('category_id')
                     ->label('Kategori')
-                    ->options(Category::all()->pluck('name', 'id'))
-                    ->searchable(),
+                    ->relationship('category', 'name', fn($query) => $query->withTrashed())
+                    ->searchable()
+                    ->preload(),
 
             ])
             ->actions([
@@ -269,6 +273,7 @@ class ProductResource extends Resource implements HasShieldPermissions
                     ->color('info')
                     ->requiresConfirmation(),
             ])
+            ->paginated([25, 50, 100])
             ->headerActions([
                 Tables\Actions\Action::make('printBarcodes')
                     ->label('Cetak Barcode')
