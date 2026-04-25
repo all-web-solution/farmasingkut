@@ -16,6 +16,7 @@ use App\Helpers\TransactionHelper;
 use App\Services\DirectPrintService;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
+use App\Services\TransactionPaymentService;
 use Filament\Forms\Concerns\InteractsWithForms;
 
 class Pos extends Component implements HasForms
@@ -170,14 +171,12 @@ class Pos extends Component implements HasForms
                             ->default(false)
                             ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
                                 if ($state) {
-                                    // Jika BPJS aktif, set pembayaran menjadi 0
                                     $set('cash_received', $this->formatNumber('0'));
-                                    $totalWithJasa = $this->calculateTotalWithJasa($get);
-                                    $set('change', $this->formatNumberWithSign(-$totalWithJasa));
+                                    $set('change', $this->formatNumberWithSign('0'));
 
                                     Notification::make()
                                         ->title('Mode BPJS Aktif')
-                                        ->body('Pembayaran Rp 0, stok produk akan tetap berkurang')
+                                        ->body('Pembayaran Rp 0, stok produk tetap berkurang, dan transaksi akan ditandai sebagai BPJS.')
                                         ->success()
                                         ->send();
                                 } else {
@@ -215,8 +214,7 @@ class Pos extends Component implements HasForms
                                 // Jika BPJS aktif, abaikan perubahan manual
                                 if ($get('is_bpjs')) {
                                     $set('cash_received', $this->formatNumber('0'));
-                                    $totalWithJasa = $this->calculateTotalWithJasa($get);
-                                    $set('change', $this->formatNumberWithSign(-$totalWithJasa));
+                                    $set('change', $this->formatNumberWithSign('0'));
                                     return;
                                 }
 
@@ -257,10 +255,9 @@ class Pos extends Component implements HasForms
         $paymentMethod = PaymentMethod::find($get('payment_method_id'));
         $isCash = $paymentMethod?->is_cash ?? false;
 
-        // Jika BPJS aktif, jangan ubah cash_received dan change
         if ($get('is_bpjs')) {
             $set('cash_received', $this->formatNumber('0'));
-            $set('change', $this->formatNumberWithSign(-$totalWithJasa));
+            $set('change', $this->formatNumberWithSign('0'));
             return;
         }
 
@@ -509,6 +506,13 @@ class Pos extends Component implements HasForms
         $payment_method_id_temp = $this->payment_method_id;
         $totalWithJasa = $this->getTotalWithJasa();
 
+        $payment = app(TransactionPaymentService::class)->normalizeForCheckout(
+            grossTotal: (int) $totalWithJasa,
+            cashReceived: (int) $cashReceivedNumeric,
+            change: (int) $changeNumeric,
+            isBpjs: (bool) $this->is_bpjs,
+        );
+
         // Validasi jika uang yang dibayar kurang (kecuali BPJS)
         if (!$this->is_bpjs && $cashReceivedNumeric < $totalWithJasa) {
             Notification::make()
@@ -558,12 +562,14 @@ class Pos extends Component implements HasForms
             'payment_method_id' => $payment_method_id_temp,
             'transaction_number' => TransactionHelper::generateUniqueTrxId(),
             'name' => $this->name,
-            'total' => $totalWithJasa,
-            'cash_received' => $this->is_bpjs ? 0 : $cashReceivedNumeric,
-            'change' => $this->is_bpjs ? -$totalWithJasa : $changeNumeric,
-            'is_bpjs' => $this->is_bpjs,
-            'jasa_dokter' => $this->jasa_dokter,
-            'jasa_tindakan' => $this->jasa_tindakan,
+            'total' => $payment['total'],
+            'cash_received' => $payment['cash_received'],
+            'change' => $payment['change'],
+            'is_bpjs' => $payment['is_bpjs'],
+            'subtotal' => (int) $this->total_price,
+            'diskon' => 0,
+            'jasa_dokter' => (int) $this->jasa_dokter,
+            'jasa_tindakan' => (int) $this->jasa_tindakan,
         ]);
 
         // Buat transaction items jika ada produk

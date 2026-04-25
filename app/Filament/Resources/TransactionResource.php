@@ -11,7 +11,6 @@ use Filament\Forms\Form;
 use Filament\Tables\Table;
 use App\Models\Transaction;
 use App\Models\PaymentMethod;
-use App\Models\TransactionItem;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use App\Services\DirectPrintService;
@@ -21,6 +20,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Builder;
+use App\Services\TransactionPaymentService;
 use Filament\Infolists\Components\TextEntry;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\TransactionResource\Pages;
@@ -212,11 +212,21 @@ class TransactionResource extends Resource implements HasShieldPermissions
                     ->numeric(),
                 Tables\Columns\TextColumn::make('total')
                     ->label('Total Harga')
-                    ->money('IDR')
-                    ->numeric(),
+                    ->getStateUsing(fn(Transaction $record): string => app(TransactionPaymentService::class)
+                        ->formatTotalForTable($record))
+                    ->badge(fn(Transaction $record): bool => (bool) $record->is_bpjs)
+                    ->color(fn(Transaction $record): ?string => app(TransactionPaymentService::class)
+                        ->totalBadgeColor($record))
+                    ->icon(fn(Transaction $record): ?string => app(TransactionPaymentService::class)
+                        ->totalBadgeIcon($record))
+                    ->sortable()
+                    ->summarize(
+                        \Filament\Tables\Columns\Summarizers\Sum::make()
+                            ->money('IDR')
+                            ->label('Total Penjualan')
+                    ),
                 Tables\Columns\BadgeColumn::make('paymentMethod.name')
-                    ->label('Pembayaran')
-                    ->numeric(),
+                    ->label('Pembayaran'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -224,15 +234,16 @@ class TransactionResource extends Resource implements HasShieldPermissions
                 Tables\Columns\TextColumn::make('updated_at')
                     ->dateTime()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('total')
-                    ->money('IDR')
-                    ->sortable()
-                    ->summarize(
-                        \Filament\Tables\Columns\Summarizers\Sum::make()
-                            ->money('IDR')
-                            ->label('Total Penjualan')
-                    ),
+                // Tables\Columns\TextColumn::make('total')
+                //     ->money('IDR')
+                //     ->sortable()
+                //     ->summarize(
+                //         \Filament\Tables\Columns\Summarizers\Sum::make()
+                //             ->money('IDR')
+                //             ->label('Total Penjualan')
+                //     ),
             ])
+            ->paginated([10, 25, 50, 100])
             ->filters([
                 Tables\Filters\Filter::make('date_range')
                     ->form([
@@ -438,10 +449,12 @@ class TransactionResource extends Resource implements HasShieldPermissions
                     ->color('danger')
                     ->weight(FontWeight::Bold),
                 TextEntry::make('total')
-                    ->label('Total Setelah Diskon :')
-                    ->money('IDR')
+                    ->label('Total :')
+                    ->formatStateUsing(fn($state, Transaction $record): string => app(TransactionPaymentService::class)
+                        ->formatTotalForTable($record))
                     ->badge()
-                    ->color('success')
+                    ->color(fn(Transaction $record): string => $record->is_bpjs ? 'info' : 'success')
+                    ->icon(fn(Transaction $record): ?string => $record->is_bpjs ? 'heroicon-o-shield-check' : null)
                     ->weight(FontWeight::Bold),
                 TextEntry::make('paymentMethod.name')
                     ->label('Metode Pembayaran :')
