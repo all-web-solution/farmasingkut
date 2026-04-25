@@ -18,6 +18,8 @@ class Transaction extends Model
         'phone',
         'address',
         'notes',
+        'subtotal',
+        'diskon',
         'total',
         'cash_received',
         'change',
@@ -26,8 +28,16 @@ class Transaction extends Model
         'jasa_dokter',
         'jasa_tindakan',
     ];
+
     protected $casts = [
         'is_bpjs' => 'boolean',
+        'total' => 'integer',
+        'cash_received' => 'integer',
+        'change' => 'integer',
+        'subtotal' => 'integer',
+        'diskon' => 'integer',
+        'jasa_dokter' => 'integer',
+        'jasa_tindakan' => 'integer',
     ];
 
     public function transactionItems()
