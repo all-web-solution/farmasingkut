@@ -57,11 +57,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->topbar(!request()->is('pos*'))
             ->navigation(!request()->is('pos*'))
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('60s')
             ->sidebarCollapsibleOnDesktop()
             ->font('poppins')
-            ->plugins([
-                \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),
-            ])
             ->plugins([
                 FilamentShieldPlugin::make()
                     ->gridColumns([
